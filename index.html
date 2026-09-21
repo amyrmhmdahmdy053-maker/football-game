@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>فوتبال 11v11 - نسخه اول</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101820;color:#fff;font-family:Tahoma,Arial,sans-serif}
+.app{max-width:1000px;margin:auto;padding:12px}.top{display:flex;justify-content:space-between;gap:8px;align-items:center;background:#182531;padding:12px;border-radius:14px}
+h1{font-size:20px;margin:0}.score{font-size:18px;font-weight:bold}.tabs{display:flex;gap:7px;overflow:auto;margin:10px 0}.tabs button,.actions button{border:0;border-radius:10px;padding:10px 12px;background:#243747;color:#fff;font-weight:bold}
+.tabs button.active,.actions button.primary{background:#168a4b}.panel{display:none}.panel.active{display:block}
+.field{position:relative;height:min(70vh,650px);min-height:470px;background:linear-gradient(#239447,#1d803e);border:5px solid #eee;border-radius:18px;overflow:hidden}
+.field:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 49.7%,#fff 49.7%,#fff 50.3%,transparent 50.3%);opacity:.75}
+.circle{position:absolute;width:120px;height:120px;border:2px solid #fff;border-radius:50%;left:calc(50% - 60px);top:calc(50% - 60px)}
+.box{position:absolute;width:30%;height:35%;border:2px solid #fff;top:32.5%}.box.l{left:0}.box.r{right:0}
+.player{position:absolute;width:54px;height:54px;border-radius:50%;background:#f2c94c;border:3px solid #fff;color:#111;font-weight:bold;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 3px 7px #0008;cursor:pointer}
+.player.user{background:#24a9ff}.player.opp{background:#e74c3c;color:#fff}.player.selected{outline:4px solid #fff}
+.ball{position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 5px #000;transform:translate(-50%,-50%)}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.pad{display:grid;grid-template-columns:repeat(3,55px);grid-template-rows:repeat(3,45px);gap:5px;justify-content:center}
+.pad button{border:0;border-radius:9px;background:#293d4c;color:#fff;font-size:20px;touch-action:none}.actions{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}.actions button{background:#293d4c;touch-action:none}
+.card{background:#182531;border-radius:14px;padding:12px;margin-bottom:10px}.row{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid #2b3a45;padding:9px 0}.row:last-child{border:0}
+.badge{background:#168a4b;padding:4px 8px;border-radius:8px;font-size:12px}.muted{color:#a9bac6;font-size:13px}
+@media(max-width:650px){.controls{grid-template-columns:1fr}.field{min-height:430px}.player{width:46px;height:46px;font-size:12px}}
+
+.hud-v10{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-radius:12px;background:rgba(0,0,0,.35);font-weight:700}
+.badge-v10{padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.12)}
+</style>
+</head>
+<body>
+<div class="app">
+ <div class="top"><h1>⚽ فوتبال 11v11</h1><div class="score" id="score">0 - 0</div><div id="clock">00:00</div></div>
+ <div class="tabs">
+  <button class="active" data-tab="match">مسابقه</button><button data-tab="team">تیم من</button><button data-tab="market">نقل‌وانتقالات</button><button data-tab="league">لیگ</button>
+ </div>
+
+ <section id="match" class="panel active"><div id="proHud" class="hud-v10"><span class="badge-v10">⚽ 11v11 PRO</span><span id="cameraLabel" class="badge-v10">📷 دنبال‌کردن توپ</span><span class="badge-v10">⭐ <span id="powerHud">0</span></span></div>
+  <div class="field" id="field">
+   <div class="circle"></div><div class="box l"></div><div class="box r"></div><div class="ball" id="ball"></div>
+  </div>
+  <div class="controls">
+   <div class="card"><b>جوی‌استیک</b><div class="pad" id="pad">
+    <span></span><button data-key="up">▲</button><span></span>
+    <button data-key="left">◀</button><button data-key="down">▼</button><button data-key="right">▶</button>
+   </div></div>
+   <div class="card"><b>عملیات</b><div class="actions">
+    <button class="primary" id="pass">پاس</button><button id="shoot">شوت</button>
+    <button id="sprint">دویدن</button><button id="switch">تعویض بازیکن</button><button id="start">شروع/توقف</button>
+   </div><div class="row"><button id="dribbleBtn">✨ دریبل</button><button id="throughBtn">🎯 پاس عمقی</button><button id="cornerBtn">🚩 کرنر</button></div><div class="row"><button id="teamPassBtn">🔗 پاس‌کاری تیمی</button></div></div>
+  </div>
+  <div class="card muted" id="msg">برای شروع مسابقه «شروع/توقف» را بزن.</div>
+ </section>
+
+ <section id="team" class="panel">
+  <div class="card"><b>ترکیب اصلی 4-3-3</b><div id="teamList"></div></div>
+  <div class="card"><b>ذخیره‌ها</b><div id="benchList"></div></div>
+ </section>
+
+ <section id="market" class="panel">
+  <div class="card"><b>بازار نقل‌وانتقالات</b><p class="muted">بازیکن موردنظر را برای خرید انتخاب کن.</p><div id="marketList"></div><p>💰 سکه: <b id="coins">1500</b></p></div>
+ </section>
+<section id="league" class="panel">
+  <div class="card"><b>🏆 لیگ فوتبال 11v11</b><p class="muted">هفته <span id="week">1</span> از 10</p>
+  <div id="table"></div></div>
+  <div class="card"><b>📅 مسابقه بعدی</b><div class="row"><span id="nextMatch">تیم من × آبی‌ها</span><button class="primary" id="playLeague">شروع</button></div></div>
+</section>
+</div>
+
+<script>
+const field=document.getElementById('field'), ball=document.getElementById('ball'), scoreEl=document.getElementById('score'), clockEl=document.getElementById('clock'), msg=document.getElementById('msg');
+let running=false, sec=0, score=[0,0], selected=0,
+coins=Number(localStorage.getItem('coins')||1500),
+week=Number(localStorage.getItem('week')||1),
+sprinting=false, half=1, possession=true, leagueMatch=false;
+let standings=JSON.parse(localStorage.getItem('standings')||'null')||[
+ {n:'تیم من',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+ {n:'آبی‌ها',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+ {n:'قرمزها',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0},
+ {n:'سبزها',p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0}
+];
+let squad=JSON.parse(localStorage.getItem('squad')||'null')||[
+ {n:'دروازه‌بان',pos:'GK',r:78,starter:true},{n:'مدافع راست',pos:'RB',r:76,starter:true},
+ {n:'مدافع میانی 1',pos:'CB',r:79,starter:true},{n:'مدافع میانی 2',pos:'CB',r:77,starter:true},
+ {n:'مدافع چپ',pos:'LB',r:75,starter:true},{n:'هافبک 1',pos:'CM',r:80,starter:true},
+ {n:'هافبک 2',pos:'CM',r:78,starter:true},{n:'هافبک 3',pos:'CM',r:81,starter:true},
+ {n:'مهاجم راست',pos:'RW',r:82,starter:true},{n:'مهاجم مرکزی',pos:'ST',r:84,starter:true},
+ {n:'مهاجم چپ',pos:'LW',r:80,starter:true},
+ {n:'ذخیره 1',pos:'SUB',r:73,starter:false},{n:'ذخیره 2',pos:'SUB',r:72,starter:false},
+ {n:'ذخیره 3',pos:'SUB',r:71,starter:false},{n:'ذخیره 4',pos:'SUB',r:70,starter:false}
+];
+let selectedStarter=-1, selectedBench=-1, formation=localStorage.getItem('formation')||'4-3-3';
+let marketPlayers=JSON.parse(localStorage.getItem('marketPlayers')||'null')||[
+ {id:1,n:'الکس',pos:'GK',r:84,price:900},{id:2,n:'مارکو',pos:'CB',r:86,price:1200},
+ {id:3,n:'دانیل',pos:'RB',r:82,price:850},{id:4,n:'لوکا',pos:'LB',r:83,price:950},
+ {id:5,n:'نوید',pos:'CM',r:88,price:1500},{id:6,n:'سام',pos:'CM',r:85,price:1100},
+ {id:7,n:'آرین',pos:'CAM',r:87,price:1400},{id:8,n:'کریم',pos:'RW',r:89,price:1800},
+ {id:9,n:'آرمان',pos:'ST',r:91,price:2400},{id:10,n:'یونس',pos:'LW',r:88,price:1700},
+ {id:11,n:'رضا',pos:'ST',r:86,price:1300},{id:12,n:'امیر',pos:'CB',r:80,price:700}
+];
+let sellMode=false;
+
+
+const names=["دروازه‌بان","مدافع راست","مدافع وسط","مدافع وسط","مدافع چپ","هافبک راست","هافبک وسط","هافبک چپ","وینگر راست","مهاجم","وینگر چپ"];
+const bench=["بازیکن ذخیره 1","بازیکن ذخیره 2","بازیکن ذخیره 3","بازیکن ذخیره 4","بازیکن ذخیره 5"];
+const players=[];
+const pos=[[8,50],[23,22],[23,43],[23,57],[23,78],[45,25],[45,50],[45,75],[70,23],[78,50],[70,77]];
+function mkPlayers(){
+ players.forEach(x=>x.el.remove()); players.length=0;
+ pos.forEach((p,i)=>{let e=document.createElement('div');e.className='player user'+(i===selected?' selected':'');e.textContent=i+1;e.style.left=p[0]+'%';e.style.top=p[1]+'%';e.onclick=()=>{selected=i;refreshPlayers();msg.textContent='بازیکن '+names[i]+' انتخاب شد.'};field.appendChild(e);players.push({el:e,x:p[0],y:p[1]});});
+ for(let i=0;i<7;i++){let e=document.createElement('div');e.className='player opp';e.textContent='حریف';e.style.left=(92-(i%2)*18)+'%';e.style.top=(18+i*10)+'%';field.appendChild(e)}
+ ball.style.left='50%';ball.style.top='50%';
+}
+function refreshPlayers(){players.forEach((p,i)=>p.el.classList.toggle('selected',i===selected))}
+function move(dx,dy){if(!running)return;let p=players[selected];let mul=sprinting?1.8:1;p.x=Math.max(4,Math.min(96,p.x+dx*mul));p.y=Math.max(6,Math.min(94,p.y+dy*mul));p.el.style.left=p.x+'%';p.el.style.top=p.y+'%';ball.style.left=p.x+'%';ball.style.top=p.y+'%'}
+function goal(){if(!running)return;score[0]++;scoreEl.textContent=score[0]+' - '+score[1];msg.textContent='⚽ گل! حمله موفق بود.';ball.style.left='50%';ball.style.top='50%'}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));document.getElementById(b.dataset.tab).classList.add('active')});
+document.querySelectorAll('[data-key]').forEach(b=>{b.onpointerdown=()=>({up:move(0,-3),down:move(0,3),left:move(-3,0),right:move(3,0)})[b.dataset.key]});
+document.addEventListener('keydown',e=>{let k=e.key.toLowerCase(); if(k==='arrowup'||k==='w')move(0,-3);if(k==='arrowdown'||k==='s')move(0,3);if(k==='arrowleft'||k==='a')move(-3,0);if(k==='arrowright'||k==='d')move(3,0);if(k===' ')goal()});
+document.getElementById('start').onclick=()=>{running=!running;msg.textContent=running?'مسابقه شروع شد!':'مسابقه متوقف شد.'};
+document.getElementById('shoot').onclick=()=>{if(running){msg.textContent='💥 شوت!';setTimeout(()=>{Math.random()<.35?goal():msg.textContent='شوت زده شد، اما گل نشد!'},180)}};
+document.getElementById('pass').onclick=()=>{if(running){selected=(selected+1)%players.length;refreshPlayers();possession=true;msg.textContent='⚽ پاس دقیق انجام شد.'}};
+document.getElementById('switch').onclick=()=>{if(running){running=false;let old=selected;selected=(selected+1)%players.length;refreshPlayers();msg.textContent='⏸️ تعویض انجام شد؛ بازیکن '+(old+1)+' با بازیکن '+(selected+1)+' جایگزین شد. برای ادامه شروع/توقف را بزن.'}};
+document.getElementById('sprint').onclick=()=>{sprinting=!sprinting;msg.textContent=sprinting?'🏃 دویدن فعال شد.':'دویدن خاموش شد.'};
+
+function renderFinance(){refreshFinance();}
+function xpNeeded(level){return 100+level*50}
+function renderAcademy(){
+ const el=document.getElementById('academyList');if(!el)return;
+ el.innerHTML=academy.map((p,i)=>`<div class="row"><span>🎓 ${p.n} · ${p.pos}<br><small>سطح ${p.level} · ⭐${p.r} · XP ${p.xp}/${xpNeeded(p.level)} · استعداد ${p.potential}</small></span><button onclick="promoteYouth(${i})">ارتقا</button></div>`).join('')+'<div class="row">'+academy.map((p,i)=>`<button onclick="graduateYouth(${i})">⬆️ جذب به تیم</button>`).join('')+'</div>';
+}
+function graduateYouth(i){ const p=academy[i]; if(!p)return; squad.push({n:p.n,pos:p.pos,r:p.r,starter:false,level:p.level,xp:p.xp,potential:p.potential,contract:2}); academy.splice(i,1); saveGame(); renderAcademy();renderFinance();renderTraining(); renderTeam(); document.getElementById('academyMsg').textContent=p.n+' به تیم اضافه شد.'; }
+function promoteYouth(i){
+ const p=academy[i];if(!p)return;
+ if(p.level>=10){document.getElementById('academyMsg').textContent='این بازیکن به حداکثر سطح آکادمی رسیده.';return}
+ p.level++;p.r=Math.min(p.potential,p.r+Math.max(1,Math.floor((p.potential-p.r+4)/8)));p.xp=0;
+ saveGame();renderAcademy();document.getElementById('academyMsg').textContent=p.n+' ارتقا پیدا کرد.';
+}
+function scoutYouth(){
+ if(coins<scoutCost || clubFinance.cash<scoutCost){document.getElementById('academyMsg').textContent='سکه یا بودجه باشگاه کافی نیست.';return}
+ coins-=scoutCost;clubFinance.cash-=scoutCost;
+ const pos=['GK','CB','CM','RW','ST','LW'][Math.floor(Math.random()*6)];
+ const pot=82+Math.floor(Math.random()*17),r=58+Math.floor(Math.random()*10);
+ academy.push({n:'جوان '+(academy.length+1),pos,r,xp:0,level:1,potential:pot});
+ saveGame();renderAcademy();document.getElementById('coins').textContent=coins;
+ document.getElementById('academyMsg').textContent='استعداد جدید پیدا شد! استعداد: '+pot;
+}
+function awardXP(amount){
+ academy.forEach(p=>{
+   p.xp+=amount;
+   while(p.xp>=xpNeeded(p.level) && p.level<10){
+     p.xp-=xpNeeded(p.level);p.level++;p.r=Math.min(p.potential,p.r+1+Math.floor(Math.random()*2));
+   }
+ });
+ saveGame();renderAcademy();
+}
+function getSkills(p){
+ const key=p.n+'|'+p.pos;
+ if(!playerSkills[key])playerSkills[key]={speed:Math.min(99,p.r+3),shot:Math.min(99,p.r),pass:Math.min(99,p.r+2),dribble:Math.min(99,p.r+1),defense:Math.min(99,p.r-2),power:Math.min(99,p.r)};
+ return playerSkills[key];
+}
+function renderSkills(){
+ const list=document.getElementById('skillList');if(!list)return;
+ if(skillSelected<0){list.innerHTML='<p class="muted">یک بازیکن اصلی را انتخاب کن.</p>';return}
+ const p=squad[skillSelected];if(!p){return}
+ const k=getSkills(p);
+ list.innerHTML=Object.entries(k).map(([name,val])=>`<div class="row"><span>${({speed:'⚡ سرعت',shot:'🥅 شوت',pass:'🎯 پاس',dribble:'✨ دریبل',defense:'🛡️ دفاع',power:'💪 قدرت'})[name]}</span><b>${val}</b></div>`).join('')+'<div class="row">'+Object.keys(k).map(n=>`<button onclick="upgradeSkill('${n}')">⬆️ ${n}</button>`).join('')+'</div>';
+}
+function upgradeSkill(name){
+ if(skillSelected<0)return;
+ const p=squad[skillSelected],k=getSkills(p),cost=(k[name]||0)*8;
+ if(k[name]>=99){document.getElementById('skillMsg').textContent='این مهارت به 99 رسیده.';return}
+ if(coins<cost){document.getElementById('skillMsg').textContent='سکه کافی نیست.';return}
+ coins-=cost;k[name]++;p.r=Math.round((k.speed+k.shot+k.pass+k.dribble+k.defense+k.power)/6);
+ saveGame();renderSkills();renderTeam();document.getElementById('coins').textContent=coins;
+ document.getElementById('skillMsg').textContent='مهارت ارتقا یافت.';
+}
+function updateTeamAI(){
+ const lv=Math.min(5,Math.max(1,Math.floor(teamStrength()/18)));
+ aiLevel=lv;
+ const e=document.getElementById('aiLevel');if(e)e.textContent='سطح '+lv;
+ const c=document.getElementById('passChain');if(c)c.textContent=passChain;
+}
+function teammateMovement(){
+ if(!running || typeof players==='undefined')return;
+ players.forEach((p,i)=>{
+   if(i===selected)return;
+   const targetX=35+((i*17)%55), targetY=20+((i*23)%60);
+   const dx=targetX-p.x,dy=targetY-p.y,d=Math.hypot(dx,dy)||1;
+   const speed=0.06+aiLevel*0.015;
+   p.x+=dx/d*speed;p.y+=dy/d*speed;
+   p.x=Math.max(3,Math.min(97,p.x));p.y=Math.max(5,Math.min(95,p.y));
+   if(p.el){p.el.style.left=p.x+'%';p.el.style.top=p.y+'%';}
+ });
+}
+function assistedPass(){
+ if(!running)return;
+ if(energy<5){setCommentary('⚠️ انرژی کافی نیست.');return}
+ energy=Math.max(0,energy-5);passChain++;
+ const sk=skillSelected>=0?getSkills(squad[skillSelected]):null; const success=Math.random()<Math.min(.94,(sk?sk.pass/100:0.7)+aiLevel*0.035);
+ setCommentary(success?'🔗 پاس‌کاری تیمی موفق!':'🛡️ پاس‌کاری توسط حریف قطع شد.');
+ const m=document.getElementById('aiMsg');if(m)m.textContent=success?'هم‌تیمی در فضای مناسب قرار گرفت.':'فشار حریف زیاد است.';
+ updateMatchStats();updateTeamAI();
+}
+function updateProHud(){
+ const p=document.getElementById('powerHud'); if(p)p.textContent=teamStrength();
+ const c=document.getElementById('cameraLabel');
+ if(c)c.textContent='📷 '+(cameraMode==='follow'?'دنبال‌کردن توپ':cameraMode==='wide'?'نمای باز':'نمای نزدیک');
+}
+function applyCamera(){
+ const field=document.querySelector('.field'); if(!field)return;
+ field.dataset.camera=cameraMode;
+ // Prototype camera: adjust field scale to simulate zoom level.
+ field.style.transform=cameraMode==='close'?'scale(1.10)':cameraMode==='wide'?'scale(.92)':'scale(1)';
+ field.style.transformOrigin='center center';
+ updateProHud();
+}
+function updateAdvancedStats(){
+ const a=document.getElementById('dribbles'),b=document.getElementById('throughPasses'),c=document.getElementById('offsides');
+ if(a)a.textContent=dribblesCount;if(b)b.textContent=throughPasses;if(c)c.textContent=offsides;
+}
+function dribbleAction(){
+ if(!running)return;
+ if(energy<6){setCommentary('⚠️ انرژی کافی برای دریبل نیست.');return}
+ const sk=skillSelected>=0?getSkills(squad[skillSelected]):null; energy=Math.max(0,energy-(sk?Math.max(2,10-sk.speed/12):6));dribblesCount++;
+ if(Math.random()<0.72){setCommentary('✨ دریبل موفق!');}
+ else {setCommentary('🛡️ مدافع توپ را گرفت.');possession=false;}
+ updateMatchStats();updateAdvancedStats();
+}
+function throughPassAction(){
+ if(!running)return;
+ if(energy<7){setCommentary('⚠️ انرژی کافی برای پاس عمقی نیست.');return}
+ energy=Math.max(0,energy-7);throughPasses++;
+ setCommentary(Math.random()<0.68?'🎯 پاس عمقی موفق!':'🧱 پاس عمقی قطع شد.');
+ updateMatchStats();updateAdvancedStats();
+}
+function cornerAction(){
+ if(!running)return;
+ corners++;setCommentary('🚩 کرنر! ارسال از جناح.');
+ const m=document.getElementById('advancedMsg');if(m)m.textContent='کرنر شماره '+corners;
+}
+function offsideCheck(){
+ if(!running)return;
+ if(Math.random()<0.025){offsides++;possession=false;setCommentary('🚩 آفساید! بازی متوقف شد.');updateAdvancedStats();}
+}
+function updateTactics(){
+ const t=document.getElementById('tactics'); if(t)t.value=tactics;
+}
+function createSetPiece(type){
+ if(!running)return;
+ setPieceActive=true;
+ const msg=document.getElementById('setPieceMsg');
+ if(msg)msg.textContent=type==='penalty'?'🥅 پنالتی! شوت را بزن.':'🎯 ضربه آزاد! شوت را بزن.';
+ setCommentary(type==='penalty'?'🥅 پنالتی اعلام شد!':'🎯 ضربه آزاد اعلام شد!');
+}
+function keeperSaveChance(){
+ if(!running || Math.random()>0.025)return;
+ saves++;
+ setCommentary('🧤 سیو فوق‌العاده دروازه‌بان!');
+}
+function tackleChance(){
+ if(!running || Math.random()>0.02)return;
+ tackles++;
+ if(Math.random()<0.35){yellow++;setCommentary('🟨 تکل خطادار؛ کارت زرد.');updateMatchStats();}
+ else setCommentary('🛡️ تکل موفق!');
+}
+function tacticalEffect(){
+ if(tactics==='attack') energy=Math.max(0,energy-0.04);
+ if(tactics==='defense') energy=Math.min(100,energy+0.025);
+ if(tactics==='counter' && possession) energy=Math.max(0,energy-0.02);
+}
+function tick(){
+ if(running){
+   sec++;
+   let displaySec=sec%90;
+   clockEl.textContent=String(Math.floor(displaySec/60)).padStart(2,'0')+':'+String(displaySec%60).padStart(2,'0');
+   if(sec===45){running=false;half=2;msg.textContent='⏸️ پایان نیمه اول — برای نیمه دوم شروع را بزن.'}
+   if(sec===90){running=false;msg.textContent='🏁 پایان مسابقه! پاداش: '+(score[0]*100)+' سکه';coins+=score[0]*100;if(leagueMatch){finishLeagueMatch();awardXP(35+score[0]*10);payWeeklyWages();trainingState.sessions=Math.max(0,trainingState.sessions);saveTraining();leagueMatch=false}else{saveGame();document.getElementById('coins').textContent=coins}}
+   if(running && sec%12===0 && Math.random()<.25){score[1]++;scoreEl.textContent=score[0]+' - '+score[1];msg.textContent='حریف گل زد!'}
+   if(running && Math.random()<.18){let p=players[(selected+1+Math.floor(Math.random()*4))%players.length];p.x=Math.min(92,p.x+1);p.el.style.left=p.x+'%'}
+ }
+ requestAnimationFrame(()=>setTimeout(tick,1000))
+}
+function saveGame(){
+ localStorage.setItem('coins',coins);
+ localStorage.setItem('week',week);
+ localStorage.setItem('standings',JSON.stringify(standings));
+ localStorage.setItem('squad',JSON.stringify(squad));
+ localStorage.setItem('formation',formation);localStorage.setItem('tactics',tactics);localStorage.setItem('cameraMode',cameraMode);localStorage.setItem('aiLevel',aiLevel);localStorage.setItem('playerSkills',JSON.stringify(playerSkills));localStorage.setItem('academy',JSON.stringify(academy));localStorage.setItem('marketPlayers',JSON.stringify(marketPlayers));
+}
+function renderTeam(){
+ const starters=squad.filter(x=>x.starter), bench=squad.filter(x=>!x.starter);
+ document.getElementById('formation').value=formation;document.getElementById('teamPower').textContent=teamStrength();
+ document.getElementById('squadList').innerHTML=starters.map((p,i)=>`<div class="row"><button onclick="selectStarter(${squad.indexOf(p)})">${selectedStarter===squad.indexOf(p)?'✅ ':''}${i+1}. ${p.n} <b>${p.r}</b></button></div>`).join('');
+ document.getElementById('benchList').innerHTML=bench.map(p=>`<div class="row"><button onclick="selectBench(${squad.indexOf(p)})">${selectedBench===squad.indexOf(p)?'✅ ':''}${p.n} <b>${p.r}</b></button></div>`).join('');
+}
+function selectStarter(i){selectedStarter=i;skillSelected=i;renderTeam();renderSkills()}
+function selectBench(i){selectedBench=i;renderTeam()}
+function doSub(){
+ if(selectedStarter<0||selectedBench<0){document.getElementById('teamMsg').textContent='ابتدا یک اصلی و یک ذخیره انتخاب کن.';return}
+ const a=squad[selectedStarter],b=squad[selectedBench];
+ a.starter=false;b.starter=true;
+ saveGame();selectedStarter=-1;selectedBench=-1;renderTeam();
+ document.getElementById('teamMsg').textContent='تعویض انجام شد.';
+}
+function upgradeSelected(){
+ if(selectedStarter<0){document.getElementById('teamMsg').textContent='ابتدا بازیکن اصلی را انتخاب کن.';return}
+ const p=squad[selectedStarter], cost=p.r*12;
+ if(coins<cost){document.getElementById('teamMsg').textContent='سکه کافی نیست.';return}
+ if(p.r>=99){document.getElementById('teamMsg').textContent='امتیاز این بازیکن به 99 رسیده.';return}
+ coins-=cost;p.r++;saveGame();renderTeam();document.getElementById('coins').textContent=coins;
+ document.getElementById('teamMsg').textContent=`${p.n} به امتیاز ${p.r} رسید.`;
+}
+function teamStrength(){
+ const st=squad.filter(x=>x.starter);
+ return st.length ? Math.round(st.reduce((a,p)=>a+p.r,0)/st.length) : 0;
+}
+function renderMarket(){
+ const q=(document.getElementById('marketSearch')?.value||'').trim().toLowerCase();
+ const pos=document.getElementById('marketPos')?.value||'ALL';
+ const list=marketPlayers.filter(p=>(!q||p.n.toLowerCase().includes(q))&&(pos==='ALL'||((pos==='DEF'&&['CB','RB','LB'].includes(p.pos))||(pos==='MID'&&['CM','CAM'].includes(p.pos))||(pos==='ATT'&&['ST','LW','RW'].includes(p.pos))||(pos==='GK'&&p.pos==='GK'))));
+ document.getElementById('marketCoins').textContent=coins;
+ document.getElementById('marketProList').innerHTML=list.map(p=>`<div class="row"><span><b>${p.n}</b> · ${p.pos} · ⭐${p.r}<br><small>${p.price} 🪙</small></span><button onclick="marketAction(${p.id})">${sellMode?'—':'خرید'}</button></div>`).join('')||'<p class="muted">بازیکنی پیدا نشد.</p>';
+}
+function marketAction(id){
+ const p=marketPlayers.find(x=>x.id===id); if(!p)return;
+ if(!sellMode){
+   if(coins<p.price){alert('سکه کافی نیست');return}
+   coins-=p.price;squad.push({n:p.n,pos:p.pos,r:p.r,starter:false,level:p.level,xp:p.xp,potential:p.potential,contract:2});
+   marketPlayers=marketPlayers.filter(x=>x.id!==id);
+ } else {
+   const i=squad.findIndex(x=>x.n===p.n);
+   if(i<0){alert('این بازیکن در تیم شما نیست.');return}
+   if(squad.filter(x=>x.starter).length<=11 && squad[i].starter){alert('برای فروش، ابتدا بازیکن را از ترکیب خارج کن.');return}
+   const sold=squad.splice(i,1)[0]; coins+=Math.round(sold.r*8);
+ }
+ saveGame();renderMarket();renderTeam();document.getElementById('coins').textContent=coins;
+}
+function renderTable(){
+ const sorted=[...standings].sort((a,b)=>b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga));
+ document.getElementById('week').textContent=week;
+ document.getElementById('table').innerHTML='<div class="row"><b>تیم</b><b>امتیاز</b></div>'+
+ sorted.map((t,i)=>`<div class="row"><span>${i+1}. ${t.n}<br><small class="muted">${t.w} برد · ${t.d} مساوی · ${t.l} باخت</small></span><b>${t.pts}</b></div>`).join('');
+}
+function finishLeagueMatch(){
+ const me=standings[0], opp=standings[1];
+ me.p++; opp.p++; me.gf+=score[0]; me.ga+=score[1]; opp.gf+=score[1]; opp.ga+=score[0];
+ if(score[0]>score[1]){me.w++;me.pts+=3;opp.l++}
+ else if(score[0]<score[1]){opp.w++;opp.pts+=3;me.l++}
+ else{me.d++;opp.d++;me.pts++;opp.pts++}
+ week=Math.min(10,week+1); coins+=score[0]*150;
+ saveGame(); renderTable(); document.getElementById('coins').textContent=coins;
+}
+function renderLists(){
+ document.getElementById('teamList').innerHTML=names.map((n,i)=>`<div class="row"><span>${i+1}. ${n}</span><span class="badge">اصلی</span></div>`).join('');
+ document.getElementById('benchList').innerHTML=bench.map(n=>`<div class="row"><span>${n}</span><span class="badge">ذخیره</span></div>`).join('');
+ const market=[['مهاجم جوان',450,78],['هافبک خلاق',520,81],['مدافع سریع',390,75],['دروازه‌بان حرفه‌ای',600,84]];
+ document.getElementById('marketList').innerHTML=market.map((x,i)=>`<div class="row"><span>${x[0]}<br><small class="muted">قدرت ${x[2]}</small></span><button onclick="buy(${x[1]},'${x[0]}')">${x[1]} سکه</button></div>`).join('');
+}
+function buy(price,name){if(coins>=price){coins-=price;document.getElementById('coins').textContent=coins;msg.textContent='خرید '+name+' انجام شد.'}else msg.textContent='سکه کافی نیست.'}
+document.getElementById('playLeague').onclick=()=>{
+ leagueMatch=true; running=true; sec=0; score=[0,0]; scoreEl.textContent='0 - 0'; clockEl.textContent='00:00';
+ document.getElementById('match').classList.add('active');
+ document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+ document.getElementById('match').classList.add('active');
+ document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('active',x.dataset.tab==='match'));
+ msg.textContent='🏆 مسابقه هفته '+week+' شروع شد!';
+};
+document.getElementById('formation').onchange=e=>{formation=e.target.value;saveGame();renderTeam()};
+document.getElementById('saveTeam').onclick=()=>{saveGame();document.getElementById('teamMsg').textContent='تیم ذخیره شد.'};
+document.getElementById('subBtn').onclick=doSub;
+if(document.getElementById('dribbleBtn'))document.getElementById('dribbleBtn').onclick=dribbleAction;
+if(document.getElementById('throughBtn'))document.getElementById('throughBtn').onclick=throughPassAction;
+if(document.getElementById('cornerBtn'))document.getElementById('cornerBtn').onclick=cornerAction;
+if(document.getElementById('cameraMode')){document.getElementById('cameraMode').value=cameraMode;document.getElementById('cameraMode').onchange=e=>{cameraMode=e.target.value;saveGame();applyCamera();};}
+if(document.getElementById('teamPassBtn'))document.getElementById('teamPassBtn').onclick=assistedPass;
+if(document.getElementById('scoutBtn'))document.getElementById('scoutBtn').onclick=scoutYouth;
+if(document.getElementById('renewBtn'))document.getElementById('renewBtn').onclick=renewSelectedContract;
+if(document.getElementById('trainBtn'))document.getElementById('trainBtn').onclick=trainTeam;
+if(document.getElementById('coachBtn'))document.getElementById('coachBtn').onclick=upgradeCoach;
+document.getElementById('upgradeBtn').onclick=upgradeSelected;
+if(document.getElementById('tactics')){document.getElementById('tactics').onchange=e=>{tactics=e.target.value;saveGame();setCommentary('🎯 تاکتیک: '+e.target.options[e.target.selectedIndex].text)};updateTactics();}
+if(document.getElementById('freeKick'))document.getElementById('freeKick').onclick=()=>createSetPiece('free');
+if(document.getElementById('penalty'))document.getElementById('penalty').onclick=()=>createSetPiece('penalty');
+
+if(document.getElementById('marketSearch')){document.getElementById('marketSearch').oninput=renderMarket;document.getElementById('marketPos').onchange=renderMarket;document.getElementById('sellMode').onclick=()=>{sellMode=!sellMode;document.getElementById('sellMode').textContent=sellMode?'بازگشت به خرید':'فروش بازیکن';renderMarket()};}
+
+mkPlayers();renderLists();renderTable();renderTeam();renderMarket();applyCamera();updateTeamAI();renderSkills();renderAcademy();document.getElementById('coins').textContent=coins;tick();
+</script>
+</body>
+</html>
